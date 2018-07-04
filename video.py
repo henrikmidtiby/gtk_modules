@@ -1,17 +1,18 @@
+from signals import DrawSignals
 import gi
 gi.require_version('Gst', '1.0')
 gi.require_version('Gtk', '3.0')
 gi.require_version('GstVideo', '1.0')
 gi.require_foreign('cairo')
 from gi.repository import Gst, GObject, Gtk, GdkX11, GstVideo, GLib
-# Needed for window.get_xid(), xvimagesink.set_window_handle(), respectively:
+# All Needed for window.get_xid(), xvimagesink.set_window_handle(), respectively.
 Gst.init()
 
 
 class Video:
-    def __init__(self, draw_area, draw_signal):
-        self.draw_area = draw_area
-        self.draw_signal = draw_signal
+    def __init__(self):
+        self.draw_area = Gtk.DrawingArea()
+        self.signals = DrawSignals()
         self.pipeline = None
         self.bus = None
         self.duration = None
@@ -76,14 +77,14 @@ class Video:
         bus.connect('sync-message::element', self._on_sync_message)
         return bus
 
-    def _on_sync_message(self, bus, msg):
+    def _on_sync_message(self, _, msg):
         if msg.get_structure().get_name() == 'prepare-window-handle':
             xid = self.draw_area.get_window().get_xid()
             msg.src.set_window_handle(xid)
             self.duration = self.pipeline.query_duration(Gst.Format.TIME)[1]
             video_length = self.duration * 1e-9
-            adjustment = Gtk.Adjustment(value=0, lower=0, upper=video_length, step_increment=100, page_increment=100,
-                                        page_size=100)
+            adjustment = Gtk.Adjustment(value=0, lower=0, upper=video_length,
+                                        step_increment=1, page_increment=1, page_size=1)
             self.frame_slider.set_adjustment(adjustment)
             self._add_marks_to_frame_slider(video_length)
             self._enable_buttons()
@@ -110,7 +111,7 @@ class Video:
 
     def _on_draw(self, _overlay, context, _timestamp, _duration):
         position = self.pipeline.query_position(Gst.Format.TIME)[1]
-        self.draw_signal.emit('video_draw', context, position)
+        self.signals.emit('video_draw', context, position)
 
     def _move_frame_slider(self):
         while self.is_player_active and not self.player_paused:
@@ -131,7 +132,7 @@ class Video:
         for time in range(0, int(length)-step, step):
             self.frame_slider.add_mark(time, Gtk.PositionType.BOTTOM, str(time))
 
-    def _toggle_player_playback(self, widget, data=None):
+    def _toggle_player_playback(self, _):
         if not self.is_player_active:
             self._play()
         elif self.player_paused:
@@ -139,7 +140,7 @@ class Video:
         else:
             self._pause()
 
-    def _stop(self, widget, data=None):
+    def _stop(self, _):
         self.pipeline.set_state(Gst.State.READY)
         self.is_player_active = False
         self.playback_button.set_image(self.play_image)
@@ -164,9 +165,6 @@ class Video:
         self.playback_button.set_image(image)
         self.is_player_active = True
 
-    def _realized(self, widget, data=None):
-        pass
-
     def _enable_buttons(self):
         self.playback_button.set_sensitive(True)
         self.stop_button.set_sensitive(True)
@@ -179,7 +177,7 @@ class Video:
         self.slow_forward_button.set_sensitive(enable)
         self.next_frame_button.set_sensitive(enable)
 
-    def _frame_slider_change(self, adjustment, data=None):
+    def _frame_slider_change(self, adjustment):
         state = self.pipeline.get_state(Gst.State.PLAYING).state
         if state == Gst.State.PAUSED:
             time = adjustment.get_value()
@@ -203,10 +201,10 @@ class Video:
     def slow_forward(self):
         self._change_speed(None, 'slow')
 
-    def _next_frame(self, widget, data=None):
+    def _next_frame(self, _):
         self.sink.send_event(Gst.Event.new_step(Gst.Format.BUFFERS, 1, 1, True, False))
 
-    def _change_speed(self, widget, data=None):
+    def _change_speed(self, _, data=None):
         if data != self.last_play_rate_state:
             rate = 1
             position = self.pipeline.query_position(Gst.Format.TIME)[1]
@@ -218,14 +216,13 @@ class Video:
                                                     Gst.SeekType.SET, position, Gst.SeekType.NONE, 0))
         self.last_play_rate_state = data
 
-    def clean_up(self):
-        self.stop()
+    def on_eos(self, _, __):
+        self.pause()
+        # print('on_eos(): seeking to start of video')
+        # self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, 0)
 
-    def on_eos(self, bus, msg):
-        print('on_eos(): seeking to start of video')
-        self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, 0)
-
-    def on_error(self, bus, msg):
+    @staticmethod
+    def on_error(_, msg):
         print('on_error():', msg.parse_error())
 
 

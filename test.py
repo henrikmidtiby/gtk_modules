@@ -3,7 +3,7 @@ from menu import Menu
 from dialogs import ProgressDialog, FileDialog
 from video import Video
 from draw_handler import DrawHandler
-from signals import DrawSignals
+from mouse import Mouse
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gio
@@ -22,11 +22,10 @@ class Test(Gtk.Application):
         about = OrderedDict()
         about.update({'_Help': ('help', None, self.on_help, False)})
         self.menu.add_sub_menu('_About', about)
-        self.draw_area = Gtk.DrawingArea()
-        self.draw_signals = DrawSignals()
-        self.video = Video(self.draw_area, self.draw_signals)
+        self.mouse = Mouse()
+        self.video = Video()
         self.draw_handler = DrawHandler()
-        self.draw_signals.connect('video_draw', self.draw_handler.test_draw)
+        self.video.signals.connect('video_draw', self.draw_handler.test_draw)
         self.window = None
 
     def do_startup(self):
@@ -41,8 +40,8 @@ class Test(Gtk.Application):
         self.window.connect('delete_event', self.on_quit)
         self.window.set_size_request(500, 500)
         vertical_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.draw_area.set_size_request(300, 300)
-        vertical_box.pack_start(self.draw_area, True, True, 0)
+        self.mouse.event_box.add(self.video.draw_area)
+        vertical_box.pack_start(self.mouse.event_box, True, True, 0)
         vertical_box.pack_start(self.video.controls, False, False, 0)
         self.window.add(vertical_box)
         self.window.show_all()
@@ -71,7 +70,6 @@ class Test(Gtk.Application):
         self.video.pause()
 
     def on_quit(self, *_):
-        self.video.clean_up()
         self.quit()
 
 
