@@ -1,5 +1,3 @@
-import gi
-gi.require_version('Gst', '1.0')
 from gi.repository import GObject
 
 
@@ -12,9 +10,15 @@ class DrawSignals(GObject.GObject):
 
 
 class MouseSignals(GObject.GObject):
-    __gsignals__ = {'mouse_press': (GObject.SIGNAL_RUN_LAST, None, (float, float)),
-                    'mouse_realise': (GObject.SIGNAL_RUN_LAST, None, (float, float)),
-                    'mouse_move': (GObject.SIGNAL_RUN_LAST, None, (float, float))}
+    __gsignals__ = {'left_mouse_press': (GObject.SIGNAL_RUN_LAST, None, (float, float)),
+                    'left_mouse_realise': (GObject.SIGNAL_RUN_LAST, None, (float, float)),
+                    'left_mouse_move': (GObject.SIGNAL_RUN_LAST, None, (float, float)),
+                    'right_mouse_press': (GObject.SIGNAL_RUN_LAST, None, (float, float)),
+                    'right_mouse_realise': (GObject.SIGNAL_RUN_LAST, None, (float, float)),
+                    'right_mouse_move': (GObject.SIGNAL_RUN_LAST, None, (float, float)),
+                    'middle_mouse_press': (GObject.SIGNAL_RUN_LAST, None, (float, float)),
+                    'middle_mouse_realise': (GObject.SIGNAL_RUN_LAST, None, (float, float)),
+                    'middle_mouse_move': (GObject.SIGNAL_RUN_LAST, None, (float, float))}
 
     def __init__(self):
         super().__init__()
