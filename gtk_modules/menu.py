@@ -16,13 +16,15 @@ class Menu:
         self._menu_action_dict.update(label_ordered_dict)
 
     def enable_menu_item(self, label, enabled):
-        action = self._actions_dict.get(label)
-        action.set_enabled(enabled)
+        if not label.startswith('separator'):
+            action = self._actions_dict.get(label)
+            action.set_enabled(enabled)
 
     def make_actions(self):
         for menu_item, action_tuple in self._menu_action_dict.items():
-            action = self._make_action(self.app_class, *action_tuple)
-            self._actions_dict.update({menu_item: action})
+            if not menu_item.startswith('separator'):
+                action = self._make_action(self.app_class, *action_tuple)
+                self._actions_dict.update({menu_item: action})
 
     @staticmethod
     def _make_action(app_class, name, _, func, enabled=True):
@@ -49,13 +51,16 @@ class Menu:
     def _to_xml(self):
         xml = '<interface><menu id="menu_bar">'
         for sub_menu, menu_items in self._menu_items.items():
-            xml += '<submenu><attribute name="label">' + sub_menu + '</attribute>'
+            xml += '<submenu><attribute name="label">' + sub_menu + '</attribute><section>'
             for menu_item in menu_items:
-                xml += '<item><attribute name="label">' + menu_item + '</attribute>'
-                xml += '<attribute name="action">app.' + self._get_action_name(menu_item) + '</attribute>'
-                if self._get_accel(menu_item) is not None:
-                    xml += '<attribute name="accel">' + self._get_accel(menu_item) + '</attribute>'
-                xml += '</item>'
-            xml += '</submenu>'
+                if menu_item.startswith('separator'):
+                    xml += '</section><section>'
+                else:
+                    xml += '<item><attribute name="label">' + menu_item + '</attribute>'
+                    xml += '<attribute name="action">app.' + self._get_action_name(menu_item) + '</attribute>'
+                    if self._get_accel(menu_item) is not None:
+                        xml += '<attribute name="accel">' + self._get_accel(menu_item) + '</attribute>'
+                    xml += '</item>'
+            xml += '</section></submenu>'
         xml += '</menu></interface>'
         return xml

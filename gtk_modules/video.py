@@ -1,4 +1,4 @@
-from signals import DrawSignals
+from gtk_modules.signals import DrawSignals
 import cairo
 import gi
 gi.require_version('Gst', '1.0')
@@ -31,7 +31,6 @@ class Video:
         self.duration = None
         self.player_paused = False
         self.is_player_active = False
-        self.frame_change = False
         self.last_play_rate_state = 'normal'
         self.playback_button = Gtk.Button()
         self.play_image = self._set_button_image(self.playback_button, 'gtk-media-play')
@@ -40,6 +39,8 @@ class Video:
         self._set_button_image(self.stop_button, 'gtk-media-stop')
         self.next_frame_button = Gtk.Button()
         self._set_button_image(self.next_frame_button, 'gtk-media-next')
+        self.previous_frame_button = Gtk.Button()
+        self._set_button_image(self.previous_frame_button, 'gtk-media-previous')
         self.normal_forward_button = Gtk.RadioButton.new_from_widget(None)
         self.normal_forward_button.set_label('x1')
         self.normal_forward_button.set_mode(False)
@@ -68,6 +69,7 @@ class Video:
         self.fast_forward_button.connect('toggled', self._change_speed, 'fast')
         self.slow_forward_button.connect('toggled', self._change_speed, 'slow')
         self.next_frame_button.connect('clicked', self._next_frame)
+        self.previous_frame_button.connect('clicked', self._previous_frame)
         self.zoom_spinner.connect('value-changed', self._change_zoom)
         self.frame_slider.connect('value-changed', self._frame_slider_change)
         self._enable_control(False)
@@ -77,6 +79,7 @@ class Video:
         self.controls.pack_start(self.normal_forward_button, False, False, 0)
         self.controls.pack_start(self.slow_forward_button, False, False, 0)
         self.controls.pack_start(self.fast_forward_button, False, False, 0)
+        self.controls.pack_start(self.previous_frame_button, False, False, 0)
         self.controls.pack_start(self.next_frame_button, False, False, 0)
         self.controls.pack_start(self.zoom_spinner, False, False, 0)
         self.controls.pack_start(self.frame_slider, True, True, 10)
@@ -152,6 +155,9 @@ class Video:
 
     def _get_size(self, _, allocation):
         self.size = (allocation.width, allocation.height)
+        if self.video_size is not None:
+            value = self.size[0] / self.video_size[0] * 100
+            self.zoom_spinner.get_adjustment().set_value(value)
 
     def emit_draw_signal(self):
         surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, *self.size)
@@ -187,6 +193,9 @@ class Video:
         else:
             self._pause()
 
+    def toggle_player_playback(self):
+        self._toggle_player_playback(None)
+
     def _stop(self, _):
         self.pipeline.set_state(Gst.State.READY)
         self.is_player_active = False
@@ -194,6 +203,7 @@ class Video:
         self.frame_slider.set_value(0)
         self.frame_slider.set_sensitive(False)
         self.next_frame_button.set_sensitive(False)
+        self.previous_frame_button.set_sensitive(False)
         self.zoom_spinner.set_sensitive(False)
 
     def _play(self):
@@ -224,21 +234,21 @@ class Video:
         self.fast_forward_button.set_sensitive(enable)
         self.slow_forward_button.set_sensitive(enable)
         self.next_frame_button.set_sensitive(enable)
-        self.zoom_spinner.set_sensitive(enable)
+        self.previous_frame_button.set_sensitive(enable)
 
     def _frame_slider_change(self, adjustment):
-        if not self.frame_change:
-            state = self.pipeline.get_state(Gst.State.PLAYING).state
-            if state == Gst.State.PAUSED:
-                time = adjustment.get_value()
-                self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, time * Gst.SECOND)
-        self.frame_change = False
+        state = self.pipeline.get_state(Gst.State.PLAYING).state
+        if state == Gst.State.PAUSED:
+            time = adjustment.get_value()
+            self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.ACCURATE, time * Gst.SECOND)
 
     def _next_frame(self, _):
-        self.frame_change = True
-        time = self.frame_slider.get_adjustment().get_value() + 1/25
+        time = self.frame_slider.get_adjustment().get_value() + 1/self.fps
         self.frame_slider.get_adjustment().set_value(time)
-        self.sink.send_event(Gst.Event.new_step(Gst.Format.BUFFERS, 1, 1, True, False))
+
+    def _previous_frame(self, _):
+        time = self.frame_slider.get_adjustment().get_value() - 1/self.fps
+        self.frame_slider.get_adjustment().set_value(time)
 
     def _change_zoom(self, widget):
         adjustment = widget.get_adjustment()
@@ -247,10 +257,21 @@ class Video:
         height = self.video_size[1] * value / 100
         self.aspect_frame.set_size_request(width, height)
 
+    def zoom_in(self):
+        value = self.zoom_spinner.get_value() + 10
+        self.zoom_spinner.set_value(value)
+
+    def zoom_out(self):
+        value = self.zoom_spinner.get_value() - 10
+        self.zoom_spinner.set_value(value)
+
+    def zoom_normal(self):
+        self.zoom_spinner.set_value(100)
+
     def _change_speed(self, _, data=None):
         if data != self.last_play_rate_state:
             rate = 1
-            position = self.pipeline.query_position(Gst.Format.TIME)[1]
+            position = self.get_position()
             if data == 'fast' and self.fast_forward_button.get_active():
                 rate = 5
             elif data == 'slow' and self.slow_forward_button.get_active():
@@ -258,6 +279,14 @@ class Video:
             self.sink.send_event(Gst.Event.new_seek(rate, Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.ACCURATE,
                                                     Gst.SeekType.SET, position, Gst.SeekType.NONE, 0))
         self.last_play_rate_state = data
+
+    def change_speed(self, data=None):
+        if data == 'fast':
+            self.fast_forward_button.set_active(True)
+        elif data == 'slow':
+            self.slow_forward_button.set_active(True)
+        else:
+            self.normal_forward_button.set_active(True)
 
     def play(self):
         self._play()
@@ -270,6 +299,9 @@ class Video:
 
     def next_frame(self):
         self._next_frame(None)
+
+    def previous_frame(self):
+        self._previous_frame(None)
 
     def fast_forward(self):
         self._change_speed(None, 'fast')

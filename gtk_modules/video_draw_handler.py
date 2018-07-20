@@ -1,8 +1,8 @@
 import numpy as np
-from signals import DrawSignals
+from gtk_modules import DrawSignals
 
 
-class DrawHandler:
+class VideoDrawHandler:
     def __init__(self, video_draw_signal):
         self.video_draw_signal = video_draw_signal
         self.signals = DrawSignals()
