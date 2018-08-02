@@ -12,6 +12,7 @@ Gst.init()
 
 class Video:
     def __init__(self):
+        self.overlay = None
         self.draw_area = Gtk.DrawingArea()
         self.draw_area.connect('size-allocate', self._get_size)
         self.event_box = Gtk.EventBox()
@@ -160,11 +161,12 @@ class Video:
             self.zoom_spinner.get_adjustment().set_value(value)
 
     def emit_draw_signal(self):
-        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, *self.size)
-        cr = cairo.Context(surface)
-        self.overlay.emit('draw', cr, Gst.util_get_timestamp(), Gst.util_get_timestamp())
-        time = self.frame_slider.get_adjustment().get_value()
-        self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, time * Gst.SECOND)
+        if self.overlay:
+            surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, *self.size)
+            cr = cairo.Context(surface)
+            self.overlay.emit('draw', cr, Gst.util_get_timestamp(), Gst.util_get_timestamp())
+            time = self.frame_slider.get_adjustment().get_value()
+            self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.ACCURATE, time * Gst.SECOND)
 
     def _move_frame_slider(self):
         while self.is_player_active and not self.player_paused:
@@ -235,6 +237,9 @@ class Video:
         self.slow_forward_button.set_sensitive(enable)
         self.next_frame_button.set_sensitive(enable)
         self.previous_frame_button.set_sensitive(enable)
+
+    def jump_to_position(self, position):
+        self.frame_slider.get_adjustment().set_value(position)
 
     def _frame_slider_change(self, adjustment):
         state = self.pipeline.get_state(Gst.State.PLAYING).state

@@ -4,10 +4,10 @@ from gi.repository import GObject
 class DrawSignals(GObject.GObject):
     __gsignals__ = {'video_draw': (GObject.SIGNAL_RUN_LAST, None, (GObject.TYPE_PYOBJECT, GObject.TYPE_PYOBJECT, GObject.TYPE_PYOBJECT, GObject.TYPE_PYOBJECT)),
                     'image_draw': (GObject.SIGNAL_RUN_LAST, None, (str,)),
-                    'point_draw': (GObject.SIGNAL_RUN_LAST, None, (float, float, float, float, float)),
-                    'line_draw': (GObject.SIGNAL_RUN_LAST, None, (float, float, float, float, float, float, float)),
+                    'point_draw': (GObject.SIGNAL_RUN_LAST, None, (GObject.TYPE_PYOBJECT,)),
+                    'line_draw': (GObject.SIGNAL_RUN_LAST, None, (GObject.TYPE_PYOBJECT,)),
                     'line_draw_live': (GObject.SIGNAL_RUN_LAST, None, (float, float, float, float, float, float, float)),
-                    'box_draw': (GObject.SIGNAL_RUN_LAST, None, (float, float, float, float, float, float, float)),
+                    'box_draw': (GObject.SIGNAL_RUN_LAST, None, (GObject.TYPE_PYOBJECT,)),
                     'box_draw_live': (GObject.SIGNAL_RUN_LAST, None, (float, float, float, float, float, float, float))}
 
     def __init__(self):
