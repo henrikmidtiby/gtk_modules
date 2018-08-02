@@ -58,7 +58,7 @@ class VideoDrawHandler:
         size_scale = np.mean(np.array(video_size) / np.array(draw_area_size))
         size = self.point_size * size_scale
         context.set_source_rgba(*color)
-        context.arc(*new_p, size, 0, 2*np.pi)
+        context.arc(new_p[0], new_p[1], size, 0, 2*np.pi)
         context.fill()
 
     def draw_point(self, event, data):
