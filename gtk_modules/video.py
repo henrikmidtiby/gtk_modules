@@ -12,6 +12,7 @@ Gst.init()
 
 class Video:
     def __init__(self):
+        self.on_pause_and_slide_change_func = None
         self.overlay = None
         self.draw_area = Gtk.DrawingArea()
         self.draw_area.connect('size-allocate', self._get_size)
@@ -87,6 +88,7 @@ class Video:
 
     def open_video(self, video_file):
         uri = 'file://' + video_file
+        print(uri)
         self.pipeline = Gst.parse_launch('playbin uri=' + uri)
         cairo_overlay_bin = self._setup_gstreamer()
         self.bus = self._setup_bus()
@@ -224,6 +226,9 @@ class Video:
         self._enable_control()
         self.playback_button.set_image(image)
         self.is_player_active = True
+        time = self.frame_slider.get_adjustment().get_value()
+        if self.on_pause_and_slide_change_func:
+            self.on_pause_and_slide_change_func(time)
 
     def _enable_buttons(self):
         self.playback_button.set_sensitive(True)
@@ -246,6 +251,8 @@ class Video:
         if state == Gst.State.PAUSED:
             time = adjustment.get_value()
             self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.ACCURATE, time * Gst.SECOND)
+            if self.on_pause_and_slide_change_func:
+                self.on_pause_and_slide_change_func(time)
 
     def _next_frame(self, _):
         time = self.frame_slider.get_adjustment().get_value() + 1/self.fps
