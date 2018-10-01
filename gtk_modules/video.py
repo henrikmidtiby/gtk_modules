@@ -1,3 +1,5 @@
+import sys
+import ctypes
 from gtk_modules.signals import DrawSignals
 import cairo
 import gi
@@ -7,7 +9,7 @@ gi.require_version('GstVideo', '1.0')
 gi.require_foreign('cairo')
 from gi.repository import Gst, GObject, Gtk, GdkX11, GstVideo, GLib
 # All Needed for window.get_xid(), xvimagesink.set_window_handle(), respectively.
-Gst.init()
+Gst.init([])
 
 
 class Video:
@@ -16,6 +18,7 @@ class Video:
         self.overlay = None
         self.draw_area = Gtk.DrawingArea()
         self.draw_area.connect('size-allocate', self._get_size)
+        self.draw_area.connect('realize', self.on_realize)
         self.event_box = Gtk.EventBox()
         self.event_box.add(self.draw_area)
         self.aspect_frame = Gtk.AspectFrame(label=None, xalign=0, yalign=0, ratio=1, obey_child=False)
@@ -35,14 +38,14 @@ class Video:
         self.is_player_active = False
         self.last_play_rate_state = 'normal'
         self.playback_button = Gtk.Button()
-        self.play_image = self._set_button_image(self.playback_button, 'gtk-media-play')
-        self.pause_image = Gtk.Image.new_from_icon_name('gtk-media-pause', Gtk.IconSize.MENU)
+        self.play_image = self._set_button_image(self.playback_button, 'media-playback-start')
+        self.pause_image = Gtk.Image.new_from_icon_name('media-playback-pause', Gtk.IconSize.MENU)
         self.stop_button = Gtk.Button()
-        self._set_button_image(self.stop_button, 'gtk-media-stop')
+        self._set_button_image(self.stop_button, 'media-playback-stop')
         self.next_frame_button = Gtk.Button()
-        self._set_button_image(self.next_frame_button, 'gtk-media-next')
+        self._set_button_image(self.next_frame_button, 'media-skip-forward')
         self.previous_frame_button = Gtk.Button()
-        self._set_button_image(self.previous_frame_button, 'gtk-media-previous')
+        self._set_button_image(self.previous_frame_button, 'media-skip-backward')
         self.normal_forward_button = Gtk.RadioButton.new_from_widget(None)
         self.normal_forward_button.set_label('x1')
         self.normal_forward_button.set_mode(False)
@@ -115,10 +118,21 @@ class Video:
         bus.connect('sync-message::element', self._on_sync_message)
         return bus
 
+    def on_realize(self, widget):
+        window = self.draw_area.get_window()
+        if sys.platform == 'win32':
+            ctypes.pythonapi.PyCapsule_GetPointer.restype = ctypes.c_void_p
+            ctypes.pythonapi.PyCapsule_GetPointer.argtypes = [ctypes.py_object]
+            window_gpointer = ctypes.pythonapi.PyCapsule_GetPointer(window.__gpointer__, None)
+            gdkdll = ctypes.CDLL ("libgdk-3-0.dll")
+            self.xid = gdkdll.gdk_win32_window_get_handle(window_gpointer)
+        else:
+            self.xid = window.get_xid()
+        
+
     def _on_sync_message(self, _, msg):
         if msg.get_structure().get_name() == 'prepare-window-handle':
-            xid = self.draw_area.get_window().get_xid()
-            msg.src.set_window_handle(xid)
+            msg.src.set_window_handle(self.xid)
             self.duration = self.pipeline.query_duration(Gst.Format.TIME)[1]
             video_length = self.duration * 1e-9
             adjustment = Gtk.Adjustment(value=0, lower=0, upper=video_length,
@@ -131,7 +145,7 @@ class Video:
         adaptor1 = Gst.ElementFactory.make('videoconvert', 'adaptor1')
         self.overlay = Gst.ElementFactory.make('cairooverlay', 'overlay')
         adaptor2 = Gst.ElementFactory.make('videoconvert', 'adaptor2')
-        self.sink = Gst.ElementFactory.make('xvimagesink', 'cairo_sink')
+        self.sink = Gst.ElementFactory.make('autovideosink', 'cairo_sink')
         cairo_overlay_bin = Gst.Bin.new('cairo_overlay_bin')
         cairo_overlay_bin.add(adaptor1)
         cairo_overlay_bin.add(self.overlay)
