@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='gtk_modules',
-      version='0.1',
+      version='0.2',
       description='GTK modules to use in other applications',
       url='',
       author='Henrik Dyrberg Egemose',
