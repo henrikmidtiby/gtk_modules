@@ -145,7 +145,10 @@ class Video:
         adaptor1 = Gst.ElementFactory.make('videoconvert', 'adaptor1')
         self.overlay = Gst.ElementFactory.make('cairooverlay', 'overlay')
         adaptor2 = Gst.ElementFactory.make('videoconvert', 'adaptor2')
-        self.sink = Gst.ElementFactory.make('autovideosink', 'cairo_sink')
+        if sys.platform == 'win32':
+            self.sink = Gst.ElementFactory.make('autovideosink', 'cairo_sink')
+        else:
+            self.sink = Gst.ElementFactory.make('xvimagesink', 'cairo_sink')
         cairo_overlay_bin = Gst.Bin.new('cairo_overlay_bin')
         cairo_overlay_bin.add(adaptor1)
         cairo_overlay_bin.add(self.overlay)
