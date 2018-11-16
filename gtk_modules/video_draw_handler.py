@@ -40,7 +40,7 @@ class VideoDrawHandler:
             if text:
                 size_scale = np.mean(np.array(video_size) / np.array(draw_area_size))
                 context.set_source_rgba(*Gdk.RGBA(0, 0, 0, 0.5))
-                context.rectangle(0, 0, (10+len(text)*10) * size_scale, 20 * size_scale)
+                context.rectangle(0, 0, (10+len(text)*8) * size_scale, 20 * size_scale)
                 context.fill()
                 context.set_source_rgba(*self.color)
                 context.move_to(5 * size_scale, 15 * size_scale)
