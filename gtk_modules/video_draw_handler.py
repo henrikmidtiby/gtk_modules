@@ -21,11 +21,13 @@ class VideoDrawHandler:
         self.temp_box = None
         self.color = Gdk.RGBA(1, 0, 0, 1)
         self.str_func = None
+        self.horizon = None
         self.point_size = 5
         self.line_thickness = 3
 
     def draw(self, event, context, position, draw_area_size, video_size):
         self.draw_text(context, position, draw_area_size, video_size)
+        self.draw_horizon(context, position, draw_area_size, video_size)
         self.draw_points(context, position, draw_area_size, video_size)
         self.draw_lines(context, position, draw_area_size, video_size)
         self.draw_boxes(context, position, draw_area_size, video_size)
@@ -46,6 +48,18 @@ class VideoDrawHandler:
                 context.move_to(5 * size_scale, 15 * size_scale)
                 context.set_font_size(15 * size_scale)
                 context.show_text(text)
+
+    def draw_horizon(self, context, position, draw_area_size, video_size):
+        if self.horizon is not None:
+            x_value, direction = self.horizon(position)
+            print(x_value)
+            size_scale = np.mean(np.array(video_size) / np.array(draw_area_size))
+            size = self.line_thickness * size_scale
+            context.set_line_width(size)
+            context.set_source_rgba(*Gdk.RGBA(1, 0, 0, 1))
+            context.move_to(x_value, 0)
+            context.line_to(x_value, video_size[1])
+            context.stroke()
 
     def draw_points(self, context, position, draw_area_size, video_size):
         for p, c, hide in self.points:
