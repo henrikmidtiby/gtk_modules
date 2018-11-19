@@ -49,16 +49,20 @@ class VideoDrawHandler:
                 context.set_font_size(15 * size_scale)
                 context.show_text(text)
 
+    @staticmethod
+    def grouped(iterable, n):
+        return zip(*[iter(iterable)] * n)
+
     def draw_horizon(self, context, position, draw_area_size, video_size):
         if self.horizon is not None:
-            x_value, direction = self.horizon(position)
-            print(x_value)
+            direction_list = self.horizon(position)
             size_scale = np.mean(np.array(video_size) / np.array(draw_area_size))
             size = self.line_thickness * size_scale
             context.set_line_width(size)
             context.set_source_rgba(*Gdk.RGBA(1, 0, 0, 1))
-            context.move_to(x_value, 0)
-            context.line_to(x_value, video_size[1])
+            for p1, p2 in self.grouped(direction_list, 2):
+                context.move_to(*p1)
+                context.line_to(*p2)
             context.stroke()
 
     def draw_points(self, context, position, draw_area_size, video_size):
