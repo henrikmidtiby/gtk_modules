@@ -49,21 +49,24 @@ class VideoDrawHandler:
                 context.set_font_size(15 * size_scale)
                 context.show_text(text)
 
-    @staticmethod
-    def grouped(iterable, n):
-        return zip(*[iter(iterable)] * n)
-
     def draw_horizon(self, context, position, draw_area_size, video_size):
         if self.horizon is not None:
-            direction_list = self.horizon(position)
-            size_scale = np.mean(np.array(video_size) / np.array(draw_area_size))
-            size = self.line_thickness * size_scale
-            context.set_line_width(size)
-            context.set_source_rgba(*Gdk.RGBA(1, 0, 0, 1))
-            for p1, p2 in self.grouped(direction_list, 2):
-                context.move_to(*p1)
-                context.line_to(*p2)
-            context.stroke()
+            image_points_dict = self.horizon(position)
+            if image_points_dict:
+                size_scale = np.mean(np.array(video_size) / np.array(draw_area_size))
+                size = self.line_thickness * size_scale
+                context.set_line_width(size)
+                for direction, image_point_pars in image_points_dict.items():
+                    if direction == 'EW':
+                        context.set_source_rgba(*Gdk.RGBA(1, 0, 0, 1))
+                    elif direction == 'NS':
+                        context.set_source_rgba(*Gdk.RGBA(0, 1, 0, 1))
+                    else:
+                        context.set_source_rgba(*Gdk.RGBA(0, 0, 1, 1))
+                    for p1, p2 in image_point_pars:
+                        context.move_to(*p1)
+                        context.line_to(*p2)
+                    context.stroke()
 
     def draw_points(self, context, position, draw_area_size, video_size):
         for p, c, hide in self.points:
