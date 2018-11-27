@@ -14,6 +14,8 @@ Gst.init([])
 
 class Video:
     def __init__(self):
+        self.xid = None
+        self.current_position = 0
         self.on_pause_and_slide_change_func = None
         self.overlay = None
         self.draw_area = Gtk.DrawingArea()
@@ -34,7 +36,7 @@ class Video:
         self.pipeline = None
         self.bus = None
         self.duration = None
-        self.player_paused = False
+        self.player_paused = True
         self.is_player_active = False
         self.last_play_rate_state = 'normal'
         self.playback_button = Gtk.Button()
@@ -91,7 +93,6 @@ class Video:
 
     def open_video(self, video_file):
         uri = 'file://' + video_file
-        print(uri)
         self.pipeline = Gst.parse_launch('playbin uri=' + uri)
         cairo_overlay_bin = self._setup_gstreamer()
         self.bus = self._setup_bus()
@@ -128,7 +129,6 @@ class Video:
             self.xid = gdkdll.gdk_win32_window_get_handle(window_gpointer)
         else:
             self.xid = window.get_xid()
-        
 
     def _on_sync_message(self, _, msg):
         if msg.get_structure().get_name() == 'prepare-window-handle':
@@ -165,13 +165,16 @@ class Video:
         return cairo_overlay_bin
 
     def get_position(self):
-        position = self.pipeline.query_position(Gst.Format.TIME)[1]
-        return position
+        return self.current_position
 
     def _on_draw(self, _overlay, context, _timestamp, _duration):
         if self.video_size is not None:
-            position = self.get_position()
-            self.signals.emit('video_draw', context, position, self.size, self.video_size)
+            self.update_current_position()
+            self.signals.emit('video_draw', context, self.current_position, self.size, self.video_size)
+
+    def update_current_position(self):
+        time = self.frame_slider.get_adjustment().get_value()
+        self.current_position = int(time * Gst.SECOND)
 
     def _get_size(self, _, allocation):
         self.size = (allocation.width, allocation.height)
@@ -184,8 +187,7 @@ class Video:
             surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, *self.size)
             cr = cairo.Context(surface)
             self.overlay.emit('draw', cr, Gst.util_get_timestamp(), Gst.util_get_timestamp())
-            time = self.frame_slider.get_adjustment().get_value()
-            self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.ACCURATE, time * Gst.SECOND)
+            self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.ACCURATE, self.current_position)
 
     def _move_frame_slider(self):
         while self.is_player_active and not self.player_paused:
@@ -238,14 +240,14 @@ class Video:
 
     def _pause(self):
         self.pipeline.set_state(Gst.State.PAUSED)
-        self.player_paused = True
         image = self.play_image
         self._enable_control()
         self.playback_button.set_image(image)
+        self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.ACCURATE, self.current_position)
+        self.player_paused = True
         self.is_player_active = True
-        time = self.frame_slider.get_adjustment().get_value()
         if self.on_pause_and_slide_change_func:
-            self.on_pause_and_slide_change_func(time)
+            self.on_pause_and_slide_change_func(self.current_position * 1e-9)
 
     def _enable_buttons(self):
         self.playback_button.set_sensitive(True)
@@ -300,13 +302,12 @@ class Video:
     def _change_speed(self, _, data=None):
         if data != self.last_play_rate_state:
             rate = 1
-            position = self.get_position()
             if data == 'fast' and self.fast_forward_button.get_active():
                 rate = 5
             elif data == 'slow' and self.slow_forward_button.get_active():
                 rate = 0.5
             self.sink.send_event(Gst.Event.new_seek(rate, Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.ACCURATE,
-                                                    Gst.SeekType.SET, position, Gst.SeekType.NONE, 0))
+                                                    Gst.SeekType.SET, self.current_position, Gst.SeekType.NONE, 0))
         self.last_play_rate_state = data
 
     def change_speed(self, data=None):
