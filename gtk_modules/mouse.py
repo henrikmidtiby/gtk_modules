@@ -15,7 +15,7 @@ class Mouse:
         self.event_box.connect('button-press-event', self.press)
         self.event_box.connect('button-release-event', self.release)
         self.event_box.connect('motion_notify_event', self.move)
-        self.size = None
+        self.size = [0, 0]
 
     def _realize(self, widget):
         draw_area = widget.get_child()
