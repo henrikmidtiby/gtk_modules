@@ -93,13 +93,15 @@ class Video:
 
     def open_video(self, video_file):
         uri = 'file://' + video_file
+        if self.pipeline is not None:
+            self.pipeline.set_state(Gst.State.NULL)
         self.pipeline = Gst.parse_launch('playbin uri=' + uri)
         cairo_overlay_bin = self._setup_gstreamer()
         self.bus = self._setup_bus()
         self.pipeline.set_property('video-sink', cairo_overlay_bin)
         self.play()
         self.pause()
-        self.pipeline.get_state(5 * Gst.SECOND)
+        self.pipeline.get_state(Gst.CLOCK_TIME_NONE)
         pad = self.pipeline.emit('get-video-pad', 0)
         caps = pad.get_current_caps()
         _, width = caps.get_structure(0).get_int('width')
@@ -266,7 +268,7 @@ class Video:
         self.frame_slider.get_adjustment().set_value(position)
 
     def _frame_slider_change(self, adjustment):
-        state = self.pipeline.get_state(Gst.State.PLAYING).state
+        state = self.pipeline.get_state(Gst.CLOCK_TIME_NONE).state
         if state == Gst.State.PAUSED:
             time = adjustment.get_value()
             self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.ACCURATE, time * Gst.SECOND)
