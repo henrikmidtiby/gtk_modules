@@ -1,6 +1,7 @@
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
+import pathlib
 
 
 class Dialog(Gtk.Dialog):
@@ -40,7 +41,7 @@ class ProgressDialog(Dialog):
 
 
 class FileDialog(Gtk.FileChooserDialog):
-    def __init__(self, parent, header, action=None, current_name=None):
+    def __init__(self, parent, header, action=None, current_name=None, current_folder=None):
         do_overwrite_confirmation = False
         select_multiple = False
         if action == 'select_folder':
@@ -61,6 +62,9 @@ class FileDialog(Gtk.FileChooserDialog):
         self.add_buttons(*response)
         self.set_do_overwrite_confirmation(do_overwrite_confirmation)
         self.set_select_multiple(select_multiple)
+        if current_folder is not None:
+            p = pathlib.Path(current_folder)
+            self.set_current_folder(str(p.parent))
         if current_name is not None:
             self.set_current_name(current_name)
         self.add_pattern_filter('Any files', '*')
